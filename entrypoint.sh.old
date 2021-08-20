@@ -1,0 +1,23 @@
+#!/bin/bash
+
+export MLM_LICENSE_FILE=/opt/matlab/licenses/license.dat
+export EXT_URL="ood.arc.vt.edu"
+### pushing these into a matlab.rc file
+#ENV APP_PORT="8888"
+#ENV BASE_URL="/matlab"   rnode/tc-intel016/35172/
+## changing these to HOSTNAME and PORT
+
+source /matlab.rc
+
+echo retrieved ENV variables from matlab.rc
+echo APP_PORT=$APP_PORT
+echo BASE_URL=$BASE_URL
+echo MATLAB_LOG_DIR=$MATLAB_LOG_DIR
+echo EXT_URL=$EXT_URL 
+
+echo ""
+echo "To use the web-desktop: http://${EXT_URL}/matlab/${HOSTNAME}/$(PORT}/index.html"
+echo ""
+
+echo starting web matlab
+matlab-jupyter-app

@@ -1,0 +1,68 @@
+# -------------------------------------------------------------
+# REMOVE next week when installing from pypi
+    ARG MATLAB_PROXY_BUILD_PATH=/opt/jupyter-matlab-proxy
+    ARG INTEG_RELEASE=0.2.0
+# -------------------------------------------------------------
+# Define in build call to specify version of MATLAB to use (e.g. r2021a)
+ARG MATLAB_DEPS_VERSION=latest
+
+FROM mathworks/matlab-deps:${MATLAB_DEPS_VERSION} as base
+USER root
+# Set of dependencies that are needed to get and run the integration 
+RUN export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get install --yes \
+        python3-pip \
+        xvfb \
+        curl \
+    && apt-get clean \
+    && apt-get -y autoremove \
+    && rm -rf /var/lib/apt/lists/*
+
+# -------------------------------------------------------------
+# REMOVE next week when installing from pypi
+    FROM base as build-whl
+
+    # Add some dependencies we know we need to build the whl from the github code
+    RUN export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get install --yes \
+            python-dev \
+            python3-setuptools \
+            nodejs \
+            npm 
+    # No need to clean up - build environment doesn't need it.
+
+    # Get release 0.2.0 directly from github and build
+    ARG MATLAB_PROXY_BUILD_PATH
+    ARG INTEG_RELEASE
+    RUN mkdir -p ${MATLAB_PROXY_BUILD_PATH} \
+        && curl -sSfL https://github.com/mathworks/jupyter-matlab-proxy/archive/v${INTEG_RELEASE}.tar.gz \
+        | tar -zxf - -C ${MATLAB_PROXY_BUILD_PATH} --strip=1 \
+        && cd ${MATLAB_PROXY_BUILD_PATH} && \
+        python3 setup.py bdist_wheel
+
+    FROM base
+    ARG MATLAB_PROXY_BUILD_PATH
+    ARG INTEG_RELEASE
+    COPY --from=build-whl ${MATLAB_PROXY_BUILD_PATH}/dist/jupyter_matlab_proxy-${INTEG_RELEASE}-py3-none-any.whl /tmp/jupyter_matlab_proxy-${INTEG_RELEASE}-py3-none-any.whl
+# -------------------------------------------------------------
+
+RUN pip3 install aiohttp>=3.7.4 && \
+    pip3 install /tmp/jupyter_matlab_proxy-${INTEG_RELEASE}-py3-none-any.whl 
+
+COPY entrypoint.sh /usr/bin/
+RUN chmod +x /usr/bin/entrypoint.sh
+
+# Let's assume you will ALWAYS cross-mount MATLAB into /opt/matlab and 
+# that MATLAB will have a license in the file /opt/matlab/licenses/license.dat
+RUN ln -s /opt/matlab/bin/matlab /usr/local/bin/matlab 
+
+# expect to run this container with something like 
+#
+#   docker run -it --rm -p 8888:8888 -v /path/to/matlabroot:/opt/matlab OOD
+#
+# On run you can specify:
+#
+#   APP_PORT to get this particular users port on the machine they are running 
+#   on. You will also need to specify BASE_URL which this users browser reaches 
+#   the container. 
+#
+#   BASE_URL is likely to be something like '/rnode/tc-intel016/35172/' because 
+#   the user's browser is accessing 'https://ood.arc.vt.edu/rnode/tc-intel016/35172/'
