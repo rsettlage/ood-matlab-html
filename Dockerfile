@@ -1,98 +1,42 @@
-# Copyright 2021 The MathWorks, Inc.
+# Define in build call to specify version of MATLAB to use (e.g. r2021a)
+ARG MATLAB_DEPS_VERSION=latest
 
-FROM ubuntu:20.04
+FROM mathworks/matlab-deps:${MATLAB_DEPS_VERSION} as base
+# Set of dependencies that are needed to get and run the integration 
+RUN export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get install --yes \
+        python3 \
+        python3-pip \
+        xvfb \
+    && apt-get clean \
+    && apt-get -y autoremove \
+    && rm -rf /var/lib/apt/lists/*
 
-LABEL maintainer="The MathWorks"
+RUN pip3 install jupyter-matlab-proxy
 
-ENV DEBIAN_FRONTEND="noninteractive" TZ="Etc/UTC"
+COPY entrypoint.sh /usr/bin/
+RUN chmod +x /usr/bin/entrypoint.sh
 
-RUN apt-get update && apt-get install --no-install-recommends -y \
-ca-certificates \
-libasound2 \
-libatk1.0-0 \
-libc6 \
-libcairo-gobject2 \
-libcairo2 \
-libcrypt1 \
-libcups2 \
-libdbus-1-3 \
-libfontconfig1 \
-libgdk-pixbuf2.0-0 \
-libgstreamer-plugins-base1.0-0 \
-libgstreamer1.0-0 \
-libgtk-3-0 \
-libnspr4 \
-libnss3 \
-libodbc1 \
-libpam0g \
-libpango-1.0-0 \
-libpangocairo-1.0-0 \
-libpangoft2-1.0-0 \
-libpython2.7 \
-libpython3.8 \
-libselinux1 \
-libsm6 \
-libsndfile1 \
-libuuid1 \
-libx11-6 \
-libx11-xcb1 \
-libxcb1 \
-libxcomposite1 \
-libxcursor1 \
-libxdamage1 \
-libxext6 \
-libxfixes3 \
-libxft2 \
-libxi6 \
-libxinerama1 \
-libxrandr2 \
-libxrender1 \
-libxt6 \
-libxtst6 \
-libxxf86vm1 \
-locales \
-locales-all \
-make \
-net-tools \
-procps \
-sudo \
-tzdata \
-unzip \
-zlib1g \
-&& apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/*
+# Let's assume you will ALWAYS cross-mount MATLAB into /opt/matlab and 
+# that MATLAB will have a license in the file /opt/matlab/licenses/license.dat
+RUN ln -s /opt/matlab/bin/matlab /usr/local/bin/matlab 
+#ENV MLM_LICENSE_FILE=/opt/matlab/licenses/license.dat
 
-RUN [ -d /usr/share/X11/xkb ] || mkdir -p /usr/share/X11/xkb
+#ENV MWI_APP_PORT="8888"
+#ENV MWI_BASE_URL="/matlab"
+# Controls the LOG directory used by MATLAB
+#ENV TMPDIR="/tmp"
 
-# Uncomment the following RUN apt-get statement if you will be using Simulink 
-# code generation capabilities, or if you will be compiling your own mex files
-# with gcc, g++, or gfortran.
+#ENTRYPOINT [ "entrypoint.sh" ]
+
+# expect to run this container with something like 
 #
-RUN apt-get update -y && apt-get install -y gcc g++ gfortran && apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/*
-
-# Uncomment the following RUN apt-get statement to enable running a program
-# that makes use of MATLAB's Engine API for C and Fortran
-# https://www.mathworks.com/help/matlab/matlab_external/introducing-matlab-engine.html
+#   docker run -it --rm -p 8888:8888 -v /path/to/matlabroot:/opt/matlab OOD
 #
-RUN apt-get update -y && apt-get install -y csh && apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/*
-
-# Uncomment ALL of the following RUN apt-get statement to enable the playing of media files
-# (mp3, mp4, etc.) from within MATLAB.
+# On run you can specify:
 #
-#RUN apt-get update -y && apt-get install --no-install-recommends -y libgstreamer1.0-0 \
-# gstreamer1.0-tools \
-# gstreamer1.0-libav \
-# gstreamer1.0-plugins-base \
-# gstreamer1.0-plugins-good \
-# gstreamer1.0-plugins-bad \
-# gstreamer1.0-plugins-ugly \
-# && apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/*
-
-# Uncomment the following line if you require the fuse filesystem
-#RUN apt-get update -y && apt-get install --no-install-recommends -y libfuse2 && apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/*
-
-# Uncomment the following line if you require firefox
-#RUN apt-get update -y && apt-get install --no-install-recommends -y firefox && apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/*
-
-# Uncomment to resolve license manager issues
-RUN ln -s /lib64/ld-linux-x86-64.so.2 /lib64/ld-lsb-x86-64.so.3
-
+#   APP_PORT to get this particular users port on the machine they are running 
+#   on. You will also need to specify BASE_URL which this users browser reaches 
+#   the container. 
+#
+#   BASE_URL is likely to be something like '/rnode/tc-intel016/35172/' because 
+#   the user's browser is accessing 'https://ood.arc.vt.edu/rnode/tc-intel016/35172/'
