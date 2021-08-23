@@ -13,14 +13,16 @@ RUN export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get install -
 
 RUN pip3 install jupyter-matlab-proxy
 
-COPY entrypoint.sh /usr/bin/
-RUN chmod +x /usr/bin/entrypoint.sh
+## going to inject at runtime
+#COPY entrypoint.sh /usr/bin/
+#RUN chmod +x /usr/bin/entrypoint.sh
 
 # Let's assume you will ALWAYS cross-mount MATLAB into /opt/matlab and 
 # that MATLAB will have a license in the file /opt/matlab/licenses/license.dat
 RUN ln -s /opt/matlab/bin/matlab /usr/local/bin/matlab 
-#ENV MLM_LICENSE_FILE=/opt/matlab/licenses/license.dat
 
+########### going to put this in matlab.rc for runtime changes
+#ENV MLM_LICENSE_FILE=/opt/matlab/licenses/license.dat
 #ENV MWI_APP_PORT="8888"
 #ENV MWI_BASE_URL="/matlab"
 # Controls the LOG directory used by MATLAB
